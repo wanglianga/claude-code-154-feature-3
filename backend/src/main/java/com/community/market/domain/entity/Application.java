@@ -121,5 +121,11 @@ public class Application {
     @Column(length = 500)
     private String actualGoods;
 
+    /**
+     * 大功率设备锁定：用电超载处置后、电工复核线路负载通过前置为 true，
+     * 期间该摊位不得继续使用加热等大功率设备（巡检登记将被拦截）。
+     */
+    private boolean highPowerLocked = false;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 }

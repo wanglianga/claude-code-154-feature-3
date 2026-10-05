@@ -103,6 +103,7 @@ public class ViewSupport {
         m.put("materialsCollected", a.isMaterialsCollected());
         m.put("materialsCollectedAt", a.getMaterialsCollectedAt());
         m.put("actualGoods", a.getActualGoods());
+        m.put("highPowerLocked", a.isHighPowerLocked());
         m.put("createdAt", a.getCreatedAt());
 
         if (withRelations) {

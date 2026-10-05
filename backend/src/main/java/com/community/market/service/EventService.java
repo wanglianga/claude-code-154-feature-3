@@ -32,6 +32,7 @@ public class EventService {
     private final DonationRecordRepository donationRepository;
     private final ComplaintRepository complaintRepository;
     private final IncidentRepository incidentRepository;
+    private final PowerCaseRepository powerCaseRepository;
     private final UserRepository userRepository;
     private final PublicityRepository publicityRepository;
     private final ViewSupport viewSupport;
@@ -93,6 +94,7 @@ public class EventService {
         archive.put("applications", apps.stream().map(a -> viewSupport.applicationView(a, true)).toList());
         archive.put("complaints", complaintRepository.findByEventIdOrderByIdDesc(eventId));
         archive.put("incidents", incidentRepository.findByEventIdOrderByIdDesc(eventId));
+        archive.put("powerCases", powerCaseRepository.findByEventIdOrderByIdDesc(eventId));
         archive.put("payments", paymentRepository.findByEventIdOrderByIdDesc(eventId));
         archive.put("donations", donationRepository.findByEventIdOrderByIdAsc(eventId));
         archive.put("publicity", publicityRepository.findByEventId(eventId).orElse(null));
@@ -106,11 +108,23 @@ public class EventService {
         List<Application> apps = applicationRepository.findByEventIdOrderByIdAsc(eventId);
         List<Incident> incidents = incidentRepository.findByEventIdOrderByIdDesc(eventId);
         List<Complaint> complaints = complaintRepository.findByEventIdOrderByIdDesc(eventId);
+        List<PowerCase> powerCases = powerCaseRepository.findByEventIdOrderByIdDesc(eventId);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("event", event);
         Map<String, Object> stats = viewSupport.eventStats(event, apps);
         result.put("stats", stats);
+
+        // 用电超载处置：停电补偿与责任说明进入复盘
+        BigDecimal powerCompensationTotal = powerCases.stream()
+                .flatMap(pc -> pc.getCompensations().stream())
+                .map(PowerCase.Compensation::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long powerCaseUnreviewed = powerCases.stream()
+                .filter(pc -> pc.getStatus() != PowerCaseStatus.REVIEWED).count();
+        result.put("powerCases", powerCases);
+        result.put("powerCompensationTotal", powerCompensationTotal);
+        result.put("powerCaseUnreviewed", powerCaseUnreviewed);
 
         // 履约红黑榜
         List<Map<String, Object>> ranking = new ArrayList<>();
@@ -130,13 +144,14 @@ public class EventService {
         }
         ranking.sort((x, y) -> ((BigDecimal) y.get("donation")).compareTo((BigDecimal) x.get("donation")));
         result.put("vendorRanking", ranking);
-        result.put("suggestions", suggestions(event, apps, incidents, complaints, stats));
+        result.put("suggestions", suggestions(event, apps, incidents, complaints, stats, powerCases));
         return result;
     }
 
     /** 下次招商建议：品类结构、公益目标、食品风险、用电规划、信用准入 */
     private List<String> suggestions(Event event, List<Application> apps, List<Incident> incidents,
-                                     List<Complaint> complaints, Map<String, Object> stats) {
+                                     List<Complaint> complaints, Map<String, Object> stats,
+                                     List<PowerCase> powerCases) {
         List<String> tips = new ArrayList<>();
 
         @SuppressWarnings("unchecked")
@@ -169,7 +184,27 @@ public class EventService {
 
         long powerOverload = incidents.stream().filter(i -> i.getType() == IncidentType.POWER_OVERLOAD).count();
         long powerNeed = apps.stream().filter(Application::isPowerNeeded).count();
-        if (powerOverload > 0) {
+        if (!powerCases.isEmpty()) {
+            long boxAdd = powerCases.stream().filter(p -> p.getMeasures().contains("BOX_ADD")).count();
+            long moved = powerCases.stream().filter(p -> p.getMeasures().contains("STALL_MOVE")).count();
+            long unreviewed = powerCases.stream()
+                    .filter(p -> p.getStatus() != PowerCaseStatus.REVIEWED).count();
+            BigDecimal comp = powerCases.stream().flatMap(p -> p.getCompensations().stream())
+                    .map(PowerCase.Compensation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long vendorFault = powerCases.stream()
+                    .filter(p -> p.getResponsibility() == PowerResponsibility.VENDOR_FAULT
+                            || p.getResponsibility() == PowerResponsibility.JOINT).count();
+            tips.add("本次发生 " + powerCases.size() + " 起临时电箱跳闸（停用设备 "
+                    + powerCases.stream().filter(p -> p.getMeasures().contains("DEVICE_STOP")).count()
+                    + " 起、调整摊位 " + moved + " 起、增加电箱 " + boxAdd + " 起），其中 " + vendorFault
+                    + " 起判定摊主侧责任；下次应按申报功率分路配电、加热设备专区接入并提高电箱容量冗余");
+            if (comp.signum() > 0) {
+                tips.add("停电波及其他摊主，累计补偿 ¥" + comp + "，已计入活动成本，下次应预留供电应急预算");
+            }
+            if (unreviewed > 0) {
+                tips.add("尚有 " + unreviewed + " 起用电处置未经电工复核线路负载，相关摊位大功率设备仍处于停用锁定，须尽快复核闭环");
+            }
+        } else if (powerOverload > 0) {
             tips.add("发生 " + powerOverload + " 起用电超载，下次需提高供电摊位容量，并按申报功率分路配电");
         }
         if (powerNeed * 2 > approved) {

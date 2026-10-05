@@ -63,6 +63,31 @@ export const COMPLAINT_STATUS = [
   { value: 'RESOLVED', label: '已处理', type: 'success' }
 ]
 
+// 用电超载处置
+export const POWER_CASE_STATUS = [
+  { value: 'REPORTED', label: '待判责处置', type: 'danger' },
+  { value: 'DISPOSED', label: '已处置待电工复核', type: 'warning' },
+  { value: 'REVIEWED', label: '电工复核通过', type: 'success' }
+]
+
+export const POWER_RESPONSIBILITY = [
+  { value: 'VENDOR_FAULT', label: '摊主违规超载，摊主担责' },
+  { value: 'JOINT', label: '多摊叠加超载，相关摊主分担' },
+  { value: 'PLATFORM_FAULT', label: '供电配置不足，平台侧担责' },
+  { value: 'EQUIPMENT_FAULT', label: '临时电箱/线路设备故障' },
+  { value: 'NONE', label: '无责，外部原因' }
+]
+
+export const POWER_MEASURES = [
+  { value: 'DEVICE_STOP', label: '停用部分设备' },
+  { value: 'STALL_MOVE', label: '调整摊位' },
+  { value: 'BOX_ADD', label: '增加电箱' }
+]
+
+export function powerMeasureLabel(v) {
+  return POWER_MEASURES.find((x) => x.value === v)?.label || v
+}
+
 export function dictLabel(list, value) {
   return list.find((x) => x.value === value)?.label || value
 }

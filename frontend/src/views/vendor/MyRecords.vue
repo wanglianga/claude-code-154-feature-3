@@ -81,6 +81,9 @@
           <el-alert v-if="current.allocationReason" type="info" :closable="false" style="margin-top:10px;">
             摊位分配说明：{{ current.allocationReason }}
           </el-alert>
+          <el-alert v-if="current.highPowerLocked" type="error" :closable="false" show-icon style="margin-top:10px;">
+            因本摊用电超载致临时电箱跳闸，已被要求停用加热等大功率设备；须经电工复核线路负载通过后方可恢复使用。
+          </el-alert>
         </el-card>
         <el-empty v-else description="选择一条已通过审核的报名查看入场码" />
       </el-col>

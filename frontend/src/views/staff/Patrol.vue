@@ -13,6 +13,11 @@
             <el-form-item v-if="selected" label="报名内容">
               <el-text type="info">{{ selected.goodsDescription }}</el-text>
             </el-form-item>
+            <el-form-item v-if="selected?.highPowerLocked" label=" ">
+              <el-alert type="error" :closable="false" show-icon style="width:100%;">
+                该摊因用电超载已停用大功率设备，电工复核线路负载前不得继续使用（实测 ≥800W 将被拦截）
+              </el-alert>
+            </el-form-item>
             <el-form-item label="实际售卖内容">
               <el-input v-model="form.actualGoods" type="textarea" :rows="2" />
             </el-form-item>

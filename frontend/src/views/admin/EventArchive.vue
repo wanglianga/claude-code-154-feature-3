@@ -112,8 +112,7 @@
           </el-timeline>
         </el-tab-pane>
 
-        <el-tab-pane :label="`异常档案(${archive.incidents?.length || 0})`" name="incidents">
-          <el-table :data="archive.incidents" border size="small">
+        <el-tab-pane :label="`异常档案(${archive.incidents?.length || 0})`" name="incidents">          <el-table :data="archive.incidents" border size="small">
             <el-table-column prop="createdAt" label="时间" width="170" />
             <el-table-column label="类型" width="160">
               <template #default="{ row }">{{ dictLabel(INCIDENT_TYPES, row.type) }}</template>
@@ -135,6 +134,35 @@
             </el-table-column>
             <el-table-column prop="resolution" label="处理结果" min-width="160" />
           </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane :label="`用电超载处置(${archive.powerCases?.length || 0})`" name="power">
+          <el-empty v-if="!archive.powerCases?.length" description="无跳闸处置记录" />
+          <el-timeline v-else>
+            <el-timeline-item v-for="p in archive.powerCases" :key="p.id" :timestamp="p.createdAt" placement="top">
+              <el-tag size="small" :type="p.status === 'REVIEWED' ? 'success' : p.status === 'DISPOSED' ? 'warning' : 'danger'">
+                {{ p.status === 'REVIEWED' ? '电工复核通过' : p.status === 'DISPOSED' ? '已处置待电工复核' : '待判责处置' }}
+              </el-tag>
+              <b>电箱 {{ p.boxCode || '—' }}</b>：{{ p.description }}
+              <div v-if="p.trippedLoadWatt" style="font-size:12px;color:#909399;">
+                跳闸叠加 {{ p.trippedLoadWatt }}W / 额定 {{ p.boxCapacityWatt ?? '—' }}W
+              </div>
+              <div v-if="p.responsibility" style="margin-top:4px;">
+                责任：{{ p.responsibilityLabel }}
+                <span style="color:#606266;font-size:12px;">— {{ p.responsibilityNote }}</span>
+              </div>
+              <div v-if="p.measures.length" style="margin-top:4px;">
+                措施：{{ p.measures.map(powerMeasureLabel).join('、') }}
+                <span style="color:#606266;font-size:12px;">{{ p.measureNote }}</span>
+              </div>
+              <div v-if="p.compensations.length" style="margin-top:4px;color:#e6a23c;">
+                停电补偿合计 ¥{{ p.compensations.reduce((s, c) => s + Number(c.amount || 0), 0).toFixed(2) }}
+              </div>
+              <div v-if="p.status === 'REVIEWED'" style="color:#67c23a;font-size:12px;">
+                电工复核：实测 {{ p.reviewedLoadWatt }}W，{{ p.reviewNote }}
+              </div>
+            </el-timeline-item>
+          </el-timeline>
         </el-tab-pane>
 
         <el-tab-pane label="公示" name="publicity">
@@ -163,7 +191,7 @@ import { useRoute } from 'vue-router'
 import { api } from '../../api/client'
 import { fmtMoney } from '../../composables/useEvents'
 import {
-  APP_STATUS, CHECKIN_STATUS, DONATION_STATUS, COMPLAINT_STATUS, INCIDENT_TYPES, dictLabel, dictType
+  APP_STATUS, CHECKIN_STATUS, DONATION_STATUS, COMPLAINT_STATUS, INCIDENT_TYPES, powerMeasureLabel, dictLabel, dictType
 } from '../../dict'
 
 const route = useRoute()

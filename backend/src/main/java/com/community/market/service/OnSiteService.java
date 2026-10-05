@@ -80,6 +80,13 @@ public class OnSiteService {
         Application a = applicationRepository.findById(req.applicationId())
                 .orElseThrow(() -> new BizException("报名不存在"));
 
+        // 用电超载处置后、电工复核线路负载通过前，相关摊位锁定，不得继续使用大功率设备
+        if (a.isHighPowerLocked() && req.powerUsedWatt() != null
+                && req.powerUsedWatt() >= PowerCaseService.HIGH_POWER_WATT) {
+            throw new BizException("该摊因用电超载已被停用大功率设备，电工复核线路负载前不得继续使用（实测 "
+                    + req.powerUsedWatt() + "W）");
+        }
+
         Inspection ins = new Inspection();
         ins.setEventId(a.getEventId());
         ins.setApplicationId(a.getId());

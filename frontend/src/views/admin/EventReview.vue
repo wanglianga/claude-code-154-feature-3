@@ -38,10 +38,53 @@
       </el-row>
     </el-card>
 
+    <el-card v-if="data.powerCases && data.powerCases.length" class="section-card" header="用电超载处置与停电补偿（进入复盘）">
+      <el-row :gutter="14" style="margin-bottom:10px;">
+        <el-col :span="8">
+          <el-statistic title="跳闸处置单数" :value="data.powerCases.length" />
+        </el-col>
+        <el-col :span="8">
+          <el-statistic title="停电补偿合计(元)" :value="Number(data.powerCompensationTotal || 0)" :precision="2" />
+        </el-col>
+        <el-col :span="8">
+          <el-statistic title="待电工复核(摊)" :value="data.powerCaseUnreviewed || 0" />
+        </el-col>
+      </el-row>
+      <el-table :data="data.powerCases" border size="small">
+        <el-table-column prop="createdAt" label="时间" width="170" />
+        <el-table-column prop="boxCode" label="电箱" width="110" />
+        <el-table-column prop="description" label="跳闸经过" min-width="180" show-overflow-tooltip />
+        <el-table-column label="责任判定" width="180">
+          <template #default="{ row }">
+            <el-tag size="small" type="warning">{{ row.responsibilityLabel || '待判责' }}</el-tag>
+            <div style="font-size:11px;color:#606266;">{{ row.responsibilityNote }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="处置措施" width="180">
+          <template #default="{ row }">
+            <el-tag v-for="m in row.measures" :key="m" size="small" style="margin:2px;">{{ measureLabel(m) }}</el-tag>
+            <span v-if="!row.measures.length">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="补偿" width="90">
+          <template #default="{ row }">
+            <span v-if="row.compensations.length">¥{{ row.compensations.reduce((s, c) => s + Number(c.amount || 0), 0).toFixed(2) }}</span>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="140">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.status === 'REVIEWED' ? 'success' : row.status === 'DISPOSED' ? 'warning' : 'danger'">
+              {{ row.statusLabel }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <el-row :gutter="14">
       <el-col :span="12">
-        <el-card class="section-card" header="摊主履约与捐赠榜（信用影响下次摊位位置）">
-          <el-table :data="data.vendorRanking" border size="small">
+        <el-card class="section-card" header="摊主履约与捐赠榜（信用影响下次摊位位置）">          <el-table :data="data.vendorRanking" border size="small">
             <el-table-column type="index" label="名次" width="60" />
             <el-table-column prop="shopName" label="摊主" min-width="130" />
             <el-table-column label="信用" width="70">
@@ -85,7 +128,7 @@ import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { api } from '../../api/client'
 import { fmtMoney } from '../../composables/useEvents'
-import { CHECKIN_STATUS, dictLabel, dictType } from '../../dict'
+import { CHECKIN_STATUS, dictLabel, dictType, powerMeasureLabel } from '../../dict'
 
 const route = useRoute()
 const eventId = Number(route.params.id)
@@ -93,6 +136,10 @@ const data = ref({})
 const pieEl = ref(null)
 
 const s = computed(() => data.value.stats || {})
+
+function measureLabel(v) {
+  return powerMeasureLabel(v)
+}
 const goalPercent = computed(() => {
   const goal = Number(s.value.goalAmount || 0)
   const got = Number(s.value.totalDonation || 0)

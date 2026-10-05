@@ -21,6 +21,7 @@ const routes = [
       // 现场工作
       { path: 'onsite/checkin', component: () => import('./views/staff/CheckIn.vue'), meta: { roles: ['ADMIN', 'STAFF'] } },
       { path: 'onsite/patrol', component: () => import('./views/staff/Patrol.vue'), meta: { roles: ['ADMIN', 'STAFF'] } },
+      { path: 'onsite/power', component: () => import('./views/staff/PowerCases.vue'), meta: { roles: ['ADMIN', 'STAFF'] } },
       { path: 'onsite/complaints', component: () => import('./views/staff/Complaints.vue'), meta: { roles: ['ADMIN', 'STAFF'] } },
       { path: 'onsite/finance', component: () => import('./views/staff/Finance.vue'), meta: { roles: ['ADMIN', 'STAFF'] } },
       // 摊主
