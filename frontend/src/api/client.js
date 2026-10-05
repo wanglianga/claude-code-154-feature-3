@@ -34,6 +34,21 @@ async function request(method, path, body) {
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined
   })
+  return await unwrap(resp)
+}
+
+/** multipart/form-data 上传（现场设备照片），不要手动设置 Content-Type */
+export async function upload(path, formData) {
+  const headers = {}
+  const token = getToken()
+  if (token) {
+    headers['Authorization'] = 'Bearer ' + token
+  }
+  const resp = await fetch(BASE + path, { method: 'POST', headers, body: formData })
+  return await unwrap(resp)
+}
+
+async function unwrap(resp) {
   if (resp.status === 401) {
     clearSession()
     if (!location.hash.startsWith('#/login') && !location.hash.startsWith('#/public')) {

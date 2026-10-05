@@ -50,7 +50,8 @@ public class DataInitializer implements ApplicationRunner {
         User foodRisk = user("xiaobai", "123456", "小白烘焙(证照办理中)", "13900000004", UserRole.VENDOR, 85);
         User charity = user("shanyi", "123456", "善意公益组织", "13900000005", UserRole.VENDOR, 115);
         User commercial = user("dajian", "123456", "大健生活馆", "13900000006", UserRole.VENDOR, 91);
-        userRepository.saveAll(List.of(handmade, second, food, foodRisk, charity, commercial));
+        User drink = user("tianmi", "123456", "甜蜜热饮", "13900000007", UserRole.VENDOR, 98);
+        userRepository.saveAll(List.of(handmade, second, food, foodRisk, charity, commercial, drink));
 
         Event event = new Event();
         event.setName("2026 秋季社区公益集市");
@@ -84,8 +85,12 @@ public class DataInitializer implements ApplicationRunner {
         applicationRepository.save(buildApp(eid, commercial.getId(), "大健日用品", StallType.COMMERCIAL,
                 "环保清洁剂、家居好物", FoodQualStatus.NONE, "", new BigDecimal("5"),
                 true, 300, true, 1, false, 0, false, true, "MIXED", "门店聚合码"));
+        // 饮品摊（加热设备），与老王凉粉同属食品区供电回路，用于演示多摊叠加跳闸处置
+        applicationRepository.save(buildApp(eid, drink.getId(), "甜蜜热饮站", StallType.FOOD,
+                "现煮奶茶、热可可、烤肠", FoodQualStatus.COMPLETE, "食摊字 2026-0266", new BigDecimal("10"),
+                true, 600, true, 1, true, 2, false, true, "WECHAT", "甜蜜热饮商户码"));
 
-        log.info("演示数据初始化完成：活动「{}」+ 20 个摊位 + 6 条摊主报名", event.getName());
+        log.info("演示数据初始化完成：活动「{}」+ 20 个摊位 + 7 条摊主报名", event.getName());
     }
 
     private void createStalls(Long eid) {

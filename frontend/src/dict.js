@@ -63,6 +63,26 @@ export const COMPLAINT_STATUS = [
   { value: 'RESOLVED', label: '已处理', type: 'success' }
 ]
 
+export const POWER_CASE_STATUS = [
+  { value: 'REPORTED', label: '已登记待处置', type: 'danger' },
+  { value: 'HANDLING', label: '处置中', type: 'warning' },
+  { value: 'PENDING_REVIEW', label: '整改完成待复核', type: 'primary' },
+  { value: 'REVIEWED', label: '复核通过已闭环', type: 'success' }
+]
+
+export const POWER_LIABILITY = [
+  { value: 'VENDOR_EXCESS', label: '摊主超额用电' },
+  { value: 'JOINT_OVERLOAD', label: '多摊叠加共同超载' },
+  { value: 'CAPACITY_INSUFFICIENT', label: '电箱容量配置不足' },
+  { value: 'MIXED', label: '摊主与场地混合责任' }
+]
+
+export const POWER_ACTION_TYPES = [
+  { value: 'DISABLE_DEVICE', label: '停用设备', type: 'danger' },
+  { value: 'RELOCATE', label: '调整摊位', type: 'warning' },
+  { value: 'ADD_BOX', label: '增加电箱/分路', type: 'success' }
+]
+
 export function dictLabel(list, value) {
   return list.find((x) => x.value === value)?.label || value
 }

@@ -81,6 +81,35 @@
           <el-alert v-if="current.allocationReason" type="info" :closable="false" style="margin-top:10px;">
             摊位分配说明：{{ current.allocationReason }}
           </el-alert>
+          <el-alert v-if="current.powerLocked" type="error" :closable="false" show-icon style="margin-top:10px;">
+            <template #title>大功率设备暂停使用</template>
+            用电整改尚未经电工复核线路负载，复核通过前本摊不得继续使用 500W 以上加热/大功率设备。
+            <div style="font-size:12px;">{{ current.powerLockReason }}</div>
+          </el-alert>
+          <div v-if="current.powerCases?.length || current.powerCompensations?.length" style="margin-top:12px;">
+            <el-divider content-position="left">用电跳闸处置与停电补偿</el-divider>
+            <el-timeline v-if="current.powerCases?.length">
+              <el-timeline-item v-for="(p, i) in current.powerCases" :key="i" :timestamp="p.statusLabel"
+                                placement="top" :type="p.status === 'REVIEWED' ? 'success' : 'warning'">
+                {{ p.title }}（电箱 {{ p.boxCode || '—' }}）
+                <el-tag size="small" type="danger" style="margin:0 4px;">{{ p.liabilityLabel }}</el-tag>
+                <span v-if="p.party?.liable" style="color:#f56c6c; font-size:12px;">本摊承担责任</span>
+                <span v-else-if="p.party?.affectedByOutage" style="color:#e6a23c; font-size:12px;">受停电波及</span>
+              </el-timeline-item>
+            </el-timeline>
+            <el-table v-if="current.powerCompensations?.length" :data="current.powerCompensations" border size="small">
+              <el-table-column prop="amount" label="补偿(元)" width="90" />
+              <el-table-column prop="outageMinutes" label="停电(分)" width="80" />
+              <el-table-column prop="reason" label="说明" min-width="120" show-overflow-tooltip />
+              <el-table-column label="状态" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.status === 'PAID' ? 'success' : 'warning'">
+                    {{ row.status === 'PAID' ? '已发放' : '待发放' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </el-card>
         <el-empty v-else description="选择一条已通过审核的报名查看入场码" />
       </el-col>

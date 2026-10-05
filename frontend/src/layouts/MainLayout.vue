@@ -18,6 +18,7 @@
           <template #title><el-icon><Bell /></el-icon><span>现场工作</span></template>
           <el-menu-item index="/onsite/checkin">核销入场 / 物资</el-menu-item>
           <el-menu-item index="/onsite/patrol">巡检 / 临时换品</el-menu-item>
+          <el-menu-item index="/onsite/power">用电跳闸处置</el-menu-item>
           <el-menu-item index="/onsite/complaints">投诉与异常</el-menu-item>
           <el-menu-item index="/onsite/finance">收款与捐赠核对</el-menu-item>
         </el-sub-menu>
@@ -67,6 +68,7 @@ const titles = {
   '/users': '账号管理',
   '/onsite/checkin': '扫码核销入场与物资发放',
   '/onsite/patrol': '现场巡检与临时换品',
+  '/onsite/power': '用电超载/跳闸处置与电工复核',
   '/onsite/complaints': '投诉与现场异常',
   '/onsite/finance': '收款统计与捐赠核对',
   '/vendor/apply': '摊主报名',

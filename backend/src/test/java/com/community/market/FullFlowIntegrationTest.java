@@ -96,7 +96,8 @@ class FullFlowIntegrationTest {
             }
             call(admin, "POST", "/api/applications/" + id + "/review",
                     Map.of("approved", approve, "comment", approve ? "符合活动规则" : "食品资质不完整，请补齐健康证后再报名"));
-            if (a.path("category").asText().equals("FOOD") && "COMPLETE".equals(qual)) {
+            if (a.path("category").asText().equals("FOOD") && "COMPLETE".equals(qual)
+                    && "laowang".equals(a.path("vendor").path("username").asText())) {
                 foodAppId = id;
             }
             if (a.path("category").asText().equals("CHARITY")) {

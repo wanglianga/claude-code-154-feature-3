@@ -38,10 +38,53 @@
       </el-row>
     </el-card>
 
+    <el-row :gutter="14" v-if="data.powerCases?.length">
+      <el-col :span="24">
+        <el-card class="section-card">
+          <template #header>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span>用电跳闸处置复盘（{{ data.powerCases.length }} 张工单，未闭环 {{ s.powerCaseOpen }}，
+                补偿合计 ¥{{ s.powerCompensationTotal || 0 }}，仍封锁摊位 {{ s.powerLockedStalls }} 个）</span>
+              <el-button size="small" @click="$router.push('/onsite/power')">去处置现场 →</el-button>
+            </div>
+          </template>
+          <el-table :data="data.powerCases" border size="small">
+            <el-table-column prop="id" label="#" width="44" />
+            <el-table-column prop="title" label="跳闸工单" min-width="170" show-overflow-tooltip />
+            <el-table-column label="状态" width="120">
+              <template #default="{ row }">
+                <el-tag size="small" :type="dictType(POWER_CASE_STATUS, row.status)">{{ row.statusLabel }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="责任判定" width="150">
+              <template #default="{ row }">
+                <el-tag size="small" type="danger">{{ row.liabilityLabel }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="责任摊 / 受波及摊" min-width="180">
+              <template #default="{ row }">
+                <div style="color:#f56c6c;">责任：{{ row.liableShops.join('、') || '—' }}</div>
+                <div style="color:#e6a23c; font-size:12px;">波及：{{ row.affectedShops.join('、') || '—' }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="补偿" width="110">
+              <template #default="{ row }">¥{{ row.compensationTotal }}（{{ row.compensationCount }}笔）</template>
+            </el-table-column>
+            <el-table-column label="增容/复核负载率" width="140">
+              <template #default="{ row }">
+                <span v-if="row.addedCapacityWatt" style="color:#67c23a;">+{{ row.addedCapacityWatt }}W　</span>
+                {{ row.reviewLoadRatio != null ? row.reviewLoadRatio + '%' : '未复核' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="liabilityNote" label="责任说明" min-width="180" show-overflow-tooltip />
+          </el-table>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="14">
       <el-col :span="12">
-        <el-card class="section-card" header="摊主履约与捐赠榜（信用影响下次摊位位置）">
-          <el-table :data="data.vendorRanking" border size="small">
+        <el-card class="section-card" header="摊主履约与捐赠榜（信用影响下次摊位位置）">          <el-table :data="data.vendorRanking" border size="small">
             <el-table-column type="index" label="名次" width="60" />
             <el-table-column prop="shopName" label="摊主" min-width="130" />
             <el-table-column label="信用" width="70">
@@ -85,7 +128,7 @@ import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { api } from '../../api/client'
 import { fmtMoney } from '../../composables/useEvents'
-import { CHECKIN_STATUS, dictLabel, dictType } from '../../dict'
+import { CHECKIN_STATUS, POWER_CASE_STATUS, dictLabel, dictType } from '../../dict'
 
 const route = useRoute()
 const eventId = Number(route.params.id)

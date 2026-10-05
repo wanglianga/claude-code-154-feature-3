@@ -121,5 +121,14 @@ public class Application {
     @Column(length = 500)
     private String actualGoods;
 
+    // ---------- 用电整改封锁 ----------
+    /** 大功率设备封锁：跳闸整改未经电工复核通过前，相关摊位不得继续使用大功率设备 */
+    private boolean powerLocked;
+
+    @Column(length = 500)
+    private String powerLockReason;
+
+    private LocalDateTime powerLockedAt;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 }

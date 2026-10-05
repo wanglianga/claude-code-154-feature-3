@@ -137,6 +137,71 @@
           </el-table>
         </el-tab-pane>
 
+        <el-tab-pane :label="`用电跳闸处置(${archive.powerCases?.length || 0})`" name="power">
+          <el-empty v-if="!archive.powerCases?.length" description="本次活动无用电跳闸工单" />
+          <div v-for="pc in archive.powerCases" :key="pc.powerCase.id" class="power-case-card">
+            <div class="pcc-head">
+              <b>#{{ pc.powerCase.id }} {{ pc.powerCase.title }}</b>
+              <el-tag size="small" :type="dictType(POWER_CASE_STATUS, pc.powerCase.status)">
+                {{ dictLabel(POWER_CASE_STATUS, pc.powerCase.status) }}
+              </el-tag>
+              <el-tag size="small" type="danger">
+                {{ pc.powerCase.liability ? dictLabel(POWER_LIABILITY, pc.powerCase.liability) : '责任待判定' }}
+              </el-tag>
+              <span style="color:#909399; font-size:12px;">
+                电箱 {{ pc.powerCase.boxCode || '—' }}｜容量 {{ pc.powerCase.boxCapacityWatt ?? '—' }}W
+                ｜实测 {{ pc.powerCase.totalActualWatt ?? '—' }}W
+                <template v-if="pc.powerCase.status === 'REVIEWED'">
+                  ｜复核负载率 {{ pc.powerCase.reviewLoadRatio }}%
+                </template>
+              </span>
+            </div>
+            <div v-if="pc.powerCase.liabilityNote" style="margin:6px 0;">责任说明：{{ pc.powerCase.liabilityNote }}</div>
+            <el-row :gutter="10">
+              <el-col :span="12">
+                <div class="pcc-sub">涉及摊位（申报 / 实测 W）</div>
+                <el-table :data="pc.parties" border size="small">
+                  <el-table-column prop="shopName" label="摊位" min-width="110" show-overflow-tooltip />
+                  <el-table-column label="申报" width="60">
+                    <template #default="{ row }">{{ row.declaredWatt ?? '—' }}</template>
+                  </el-table-column>
+                  <el-table-column label="实测" width="60">
+                    <template #default="{ row }">{{ row.actualWatt ?? '—' }}</template>
+                  </el-table-column>
+                  <el-table-column label="标记" width="110">
+                    <template #default="{ row }">
+                      <el-tag v-if="row.liable" size="small" type="danger">责任</el-tag>
+                      <el-tag v-if="row.affectedByOutage" size="small" type="warning" style="margin-left:2px;">受波及</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </el-col>
+              <el-col :span="12">
+                <div class="pcc-sub">处置措施与补偿（合计 ¥{{ pc.compensationTotal }}）</div>
+                <el-timeline v-if="pc.actions.length" style="padding-left:4px;">
+                  <el-timeline-item v-for="a in pc.actions" :key="a.id" :timestamp="a.createdAt" placement="top">
+                    {{ dictLabel(POWER_ACTION_TYPES, a.type) }}｜{{ a.shopName || '全场' }}：{{ a.detail }}
+                    <span v-if="a.addedCapacityWatt">（+{{ a.addedCapacityWatt }}W）</span>
+                  </el-timeline-item>
+                </el-timeline>
+                <el-table v-if="pc.compensations.length" :data="pc.compensations" border size="small" style="margin-top:6px;">
+                  <el-table-column prop="shopName" label="受影响摊" min-width="100" show-overflow-tooltip />
+                  <el-table-column prop="amount" label="补偿" width="70" />
+                  <el-table-column label="状态" width="70">
+                    <template #default="{ row }">
+                      {{ row.status === 'PAID' ? '已发放' : '待发放' }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-text v-if="!pc.actions.length && !pc.compensations.length" type="info" size="small">暂无措施/补偿</el-text>
+              </el-col>
+            </el-row>
+            <div v-if="pc.powerCase.reviewComment" style="margin-top:6px; color:#67c23a;">
+              电工复核：{{ pc.powerCase.reviewComment }}
+            </div>
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane label="公示" name="publicity">
           <el-empty v-if="!archive.publicity" description="尚未发布公示" />
           <el-descriptions v-else :column="1" border>
@@ -163,7 +228,8 @@ import { useRoute } from 'vue-router'
 import { api } from '../../api/client'
 import { fmtMoney } from '../../composables/useEvents'
 import {
-  APP_STATUS, CHECKIN_STATUS, DONATION_STATUS, COMPLAINT_STATUS, INCIDENT_TYPES, dictLabel, dictType
+  APP_STATUS, CHECKIN_STATUS, DONATION_STATUS, COMPLAINT_STATUS, INCIDENT_TYPES,
+  POWER_CASE_STATUS, POWER_LIABILITY, POWER_ACTION_TYPES, dictLabel, dictType
 } from '../../dict'
 
 const route = useRoute()
@@ -179,4 +245,24 @@ onMounted(async () => {
 
 <style scoped>
 .dispute { color: #f56c6c; }
+.power-case-card {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #fafbfc;
+}
+.pcc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.pcc-sub {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #303133;
+}
 </style>

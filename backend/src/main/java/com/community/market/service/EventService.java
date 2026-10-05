@@ -34,6 +34,10 @@ public class EventService {
     private final IncidentRepository incidentRepository;
     private final UserRepository userRepository;
     private final PublicityRepository publicityRepository;
+    private final PowerCaseRepository powerCaseRepository;
+    private final PowerCasePartyRepository powerCasePartyRepository;
+    private final PowerActionRepository powerActionRepository;
+    private final PowerCompensationRepository powerCompensationRepository;
     private final ViewSupport viewSupport;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -96,7 +100,25 @@ public class EventService {
         archive.put("payments", paymentRepository.findByEventIdOrderByIdDesc(eventId));
         archive.put("donations", donationRepository.findByEventIdOrderByIdAsc(eventId));
         archive.put("publicity", publicityRepository.findByEventId(eventId).orElse(null));
+        archive.put("powerCases", buildPowerCases(eventId));
         return archive;
+    }
+
+    /** 用电跳闸处置工单归集（含涉及摊位、措施、补偿、责任与复核结论） */
+    private List<Map<String, Object>> buildPowerCases(Long eventId) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (PowerCase c : powerCaseRepository.findByEventIdOrderByIdDesc(eventId)) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("powerCase", c);
+            row.put("parties", powerCasePartyRepository.findByCaseIdOrderByIdAsc(c.getId()));
+            row.put("actions", powerActionRepository.findByCaseIdOrderByIdAsc(c.getId()));
+            List<PowerCompensation> comps = powerCompensationRepository.findByCaseIdOrderByIdAsc(c.getId());
+            row.put("compensations", comps);
+            row.put("compensationTotal", comps.stream()
+                    .map(PowerCompensation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
+            list.add(row);
+        }
+        return list;
     }
 
     // ==================== 复盘 + 招商建议 ====================
@@ -111,6 +133,55 @@ public class EventService {
         result.put("event", event);
         Map<String, Object> stats = viewSupport.eventStats(event, apps);
         result.put("stats", stats);
+
+        // 用电跳闸处置复盘（责任说明与补偿进入复盘）
+        List<PowerCase> powerCases = powerCaseRepository.findByEventIdOrderByIdDesc(eventId);
+        List<Map<String, Object>> powerReview = new ArrayList<>();
+        BigDecimal powerCompTotal = BigDecimal.ZERO;
+        long powerOpen = 0;
+        long powerLocked = apps.stream().filter(Application::isPowerLocked).count();
+        for (PowerCase c : powerCases) {
+            List<PowerCompensation> comps = powerCompensationRepository.findByCaseIdOrderByIdAsc(c.getId());
+            BigDecimal total = comps.stream().map(PowerCompensation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            powerCompTotal = powerCompTotal.add(total);
+            if (c.getStatus() != PowerCaseStatus.REVIEWED) {
+                powerOpen++;
+            }
+            List<String> liableShops = powerCasePartyRepository.findByCaseIdOrderByIdAsc(c.getId()).stream()
+                    .filter(PowerCaseParty::isLiable)
+                    .map(p -> p.getShopName() == null ? ("报名#" + p.getApplicationId()) : p.getShopName()).toList();
+            List<String> affectedShops = powerCasePartyRepository.findByCaseIdOrderByIdAsc(c.getId()).stream()
+                    .filter(PowerCaseParty::isAffectedByOutage)
+                    .map(p -> p.getShopName() == null ? ("报名#" + p.getApplicationId()) : p.getShopName()).distinct().toList();
+            long addedCapacity = powerActionRepository.findByCaseIdOrderByIdAsc(c.getId()).stream()
+                    .filter(a -> a.getType() == PowerActionType.ADD_BOX && a.getAddedCapacityWatt() != null)
+                    .mapToLong(PowerAction::getAddedCapacityWatt).sum();
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", c.getId());
+            row.put("title", c.getTitle());
+            row.put("boxCode", c.getBoxCode());
+            row.put("status", c.getStatus().name());
+            row.put("statusLabel", c.getStatus().getLabel());
+            row.put("liability", c.getLiability() == null ? null : c.getLiability().name());
+            row.put("liabilityLabel", c.getLiability() == null ? "待判定" : c.getLiability().getLabel());
+            row.put("liabilityNote", c.getLiabilityNote());
+            row.put("liableShops", liableShops);
+            row.put("affectedShops", affectedShops);
+            row.put("compensationTotal", total);
+            row.put("compensationCount", comps.size());
+            row.put("addedCapacityWatt", addedCapacity);
+            row.put("reviewLoadWatt", c.getReviewLoadWatt());
+            row.put("reviewLoadRatio", c.getReviewLoadRatio());
+            row.put("reviewComment", c.getReviewComment());
+            row.put("electricianName", c.getElectricianName());
+            powerReview.add(row);
+        }
+        stats.put("powerCaseCount", powerCases.size());
+        stats.put("powerCaseOpen", powerOpen);
+        stats.put("powerCompensationTotal", powerCompTotal);
+        stats.put("powerLockedStalls", powerLocked);
+        result.put("powerCases", powerReview);
 
         // 履约红黑榜
         List<Map<String, Object>> ranking = new ArrayList<>();
@@ -130,8 +201,52 @@ public class EventService {
         }
         ranking.sort((x, y) -> ((BigDecimal) y.get("donation")).compareTo((BigDecimal) x.get("donation")));
         result.put("vendorRanking", ranking);
-        result.put("suggestions", suggestions(event, apps, incidents, complaints, stats));
+        List<String> tips = suggestions(event, apps, incidents, complaints, stats);
+        tips.addAll(powerSuggestions(powerCases, powerCompTotal, powerLocked));
+        result.put("suggestions", tips);
         return result;
+    }
+
+    /** 用电跳闸处置专项复盘建议（含责任、补偿、增容、复核） */
+    private List<String> powerSuggestions(List<PowerCase> cases, BigDecimal compTotal, long locked) {
+        List<String> tips = new ArrayList<>();
+        if (cases.isEmpty()) {
+            return tips;
+        }
+        long joint = cases.stream().filter(c -> c.getLiability() == PowerLiability.JOINT_OVERLOAD).count();
+        long vendor = cases.stream().filter(c -> c.getLiability() == PowerLiability.VENDOR_EXCESS).count();
+        long capacity = cases.stream().filter(c -> c.getLiability() == PowerLiability.CAPACITY_INSUFFICIENT).count();
+        long reviewed = cases.stream().filter(c -> c.getStatus() == PowerCaseStatus.REVIEWED).count();
+
+        if (joint > 0) {
+            tips.add("发生 " + joint + " 起多摊加热设备同时使用导致的叠加跳闸，下次饮品/加热摊位应按电箱分路编排，"
+                    + "同箱申报功率合计预留 20% 余量，并在入场时核验实际设备");
+        }
+        if (vendor > 0) {
+            tips.add("有 " + vendor + " 起摊主实际设备超出申报功率，下次报名应列明加热设备清单与额定功率，"
+                    + "现场超申报设备一律停用并纳入信用扣分");
+        }
+        if (capacity > 0) {
+            tips.add("有 " + capacity + " 起属临时电箱容量不足（平台责任），下次需按申报用电增配电箱/分路，"
+                    + "食品饮品区单独回路并加装漏电保护");
+        }
+        long added = cases.stream().flatMap(c -> powerActionRepository.findByCaseIdOrderByIdAsc(c.getId()).stream())
+                .filter(a -> a.getType() == PowerActionType.ADD_BOX && a.getAddedCapacityWatt() != null)
+                .mapToLong(PowerAction::getAddedCapacityWatt).sum();
+        if (added > 0) {
+            tips.add("本次现场累计增容 " + added + "W，复盘核定新增电箱是否转为下次活动固定供电配置");
+        }
+        if (compTotal.signum() > 0) {
+            tips.add("停电波及其他摊主，已登记补偿合计 " + compTotal + " 元，补偿支出与责任说明纳入活动成本复盘，"
+                    + "由责任方/平台按认定结果承担");
+        }
+        if (locked > 0) {
+            tips.add("当前仍有 " + locked + " 个摊位大功率设备处于封锁状态，须在电工复核线路负载通过后方可恢复使用");
+        }
+        if (reviewed < cases.size()) {
+            tips.add("有 " + (cases.size() - reviewed) + " 张用电处置工单未完成电工复核闭环，活动结束前须完成线路负载复核");
+        }
+        return tips;
     }
 
     /** 下次招商建议：品类结构、公益目标、食品风险、用电规划、信用准入 */

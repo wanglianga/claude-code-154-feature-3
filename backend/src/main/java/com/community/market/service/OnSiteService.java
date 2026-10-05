@@ -114,6 +114,16 @@ public class OnSiteService {
                 }
             });
         }
+
+        // 大功率设备封锁期间违规使用 → 严重异常并再次扣分（须电工复核通过后才解封）
+        if (a.isPowerLocked() && req.powerUsedWatt() != null
+                && req.powerUsedWatt() >= PowerService.HIGH_POWER_WATT) {
+            incidentService.raise(a.getEventId(), a.getId(), IncidentType.POWER_OVERLOAD,
+                    "该摊处于用电整改封锁期（" + a.getPowerLockReason()
+                            + "），电工未复核前仍使用大功率设备，实测 " + req.powerUsedWatt() + "W，已当场断电制止",
+                    3, staffId);
+            creditService.adjust(a.getVendorId(), a.getEventId(), a.getId(), -10, "封锁期违规使用大功率设备");
+        }
         return ins;
     }
 

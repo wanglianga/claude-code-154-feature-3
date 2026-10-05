@@ -40,3 +40,6 @@ temp/
 *recording*.webm
 *recording*.mp4
 *trace*.jsonl
+
+# 现场设备照片运行时上传目录
+uploads/

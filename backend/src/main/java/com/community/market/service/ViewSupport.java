@@ -27,6 +27,9 @@ public class ViewSupport {
     private final ComplaintRepository complaintRepository;
     private final IncidentRepository incidentRepository;
     private final InspectionRepository inspectionRepository;
+    private final PowerCompensationRepository powerCompensationRepository;
+    private final PowerCasePartyRepository powerCasePartyRepository;
+    private final PowerCaseRepository powerCaseRepository;
 
     public Map<String, Object> userBrief(Long id) {
         if (id == null) {
@@ -103,6 +106,9 @@ public class ViewSupport {
         m.put("materialsCollected", a.isMaterialsCollected());
         m.put("materialsCollectedAt", a.getMaterialsCollectedAt());
         m.put("actualGoods", a.getActualGoods());
+        m.put("powerLocked", a.isPowerLocked());
+        m.put("powerLockReason", a.getPowerLockReason());
+        m.put("powerLockedAt", a.getPowerLockedAt());
         m.put("createdAt", a.getCreatedAt());
 
         if (withRelations) {
@@ -117,6 +123,25 @@ public class ViewSupport {
             m.put("complaints", complaintRepository.findByApplicationIdOrderByIdDesc(a.getId()));
             m.put("incidents", incidentRepository.findByApplicationIdOrderByIdDesc(a.getId()));
             m.put("inspections", inspectionRepository.findByApplicationIdOrderByCreatedAtDesc(a.getId()));
+
+            // 用电跳闸：作为责任方/受影响方参与的工单与停电补偿
+            List<Map<String, Object>> powerRows = new ArrayList<>();
+            for (PowerCaseParty p : powerCasePartyRepository.findByApplicationId(a.getId())) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("party", p);
+                powerCaseRepository.findById(p.getCaseId()).ifPresent(pc -> {
+                    row.put("title", pc.getTitle());
+                    row.put("boxCode", pc.getBoxCode());
+                    row.put("status", pc.getStatus().name());
+                    row.put("statusLabel", pc.getStatus().getLabel());
+                    row.put("liability", pc.getLiability() == null ? null : pc.getLiability().name());
+                    row.put("liabilityLabel", pc.getLiability() == null ? "待判定" : pc.getLiability().getLabel());
+                    row.put("reviewedAt", pc.getReviewedAt());
+                });
+                powerRows.add(row);
+            }
+            m.put("powerCases", powerRows);
+            m.put("powerCompensations", powerCompensationRepository.findByApplicationIdOrderByIdDesc(a.getId()));
         }
         return m;
     }

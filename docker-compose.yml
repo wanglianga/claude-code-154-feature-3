@@ -33,8 +33,11 @@ services:
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: admin123
       TZ: Asia/Shanghai
+      JAVA_OPTS: -Dapp.power.upload-dir=/app/uploads/power
     ports:
       - "8080:8080"
+    volumes:
+      - cm-power-files:/app/uploads/power
 
   frontend:
     build: ./frontend
@@ -46,3 +49,4 @@ services:
 
 volumes:
   cm-mysql-data:
+  cm-power-files:

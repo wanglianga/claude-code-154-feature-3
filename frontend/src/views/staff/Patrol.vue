@@ -13,6 +13,11 @@
             <el-form-item v-if="selected" label="报名内容">
               <el-text type="info">{{ selected.goodsDescription }}</el-text>
             </el-form-item>
+            <el-form-item v-if="selected?.powerLocked" label=" ">
+              <el-alert type="error" :closable="false" show-icon style="width:100%;"
+                        title="该摊大功率设备封锁中（电工未复核）"
+                        :description="selected.powerLockReason || '整改复核通过前不得继续使用 500W 以上设备'" />
+            </el-form-item>
             <el-form-item label="实际售卖内容">
               <el-input v-model="form.actualGoods" type="textarea" :rows="2" />
             </el-form-item>
